@@ -1,6 +1,16 @@
 var graphql = require('graphql')
+var AWS = require('aws-sdk');
+
 const SnippetModel = require('./models/snippet');
 const SnippetType = require('./types/snippet');
+
+AWS.config.update({
+  region: "eu-west-1",
+  endpoint: "dynamodb.eu-west-1.amazonaws.com"
+});
+
+var awsDB = new AWS.DynamoDB.DocumentClient();
+
 
 var GraphQLObjectType = graphql.GraphQLObjectType
 var GraphQLInt = graphql.GraphQLInt
@@ -27,6 +37,28 @@ var QueryType = new graphql.GraphQLObjectType({
   })
 });
 
+const addToMongoDB = async ({ title, body, completed }) => {
+  const snippet = new SnippetModel({
+    id: (new Date()).getTime(),
+    title,
+    body,
+    completed,
+  });
+  return await snippet.save();
+}
+
+const addToDynamoDB = async ({ title, body, completed }) => {
+  let params = {
+      TableName: 'Snippets',
+      Item:{
+        title,
+        body,
+        completed,
+      }
+  };
+  return await awsDB.put(params, async data => JSON.stringify(data, null, 2));
+}
+
 const MutationAdd = {
   type: new GraphQLList(SnippetType),
   description: 'Add a Snippet',
@@ -49,14 +81,8 @@ const MutationAdd = {
   },
   resolve: async (root, args) => {
     try {
-      let snippet = new SnippetModel({
-        id: (new Date()).getTime(),
-        title: args.title,
-        body: args.body,
-        completed: args.completed,
-      });
-      const r = await snippet.save();
-      return r;
+      addToMongoDB(args);
+      addToDynamoDB(args);
     } catch (e) {
       console.log(e);
     }

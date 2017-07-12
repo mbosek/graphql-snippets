@@ -1,5 +1,5 @@
-var graphql = require('graphql')
-var AWS = require('aws-sdk');
+const graphql = require('graphql')
+const AWS = require('aws-sdk');
 
 const SnippetModel = require('./models/snippet');
 const SnippetType = require('./types/snippet');
@@ -9,18 +9,17 @@ AWS.config.update({
   endpoint: "dynamodb.eu-west-1.amazonaws.com"
 });
 
-var awsDB = new AWS.DynamoDB.DocumentClient();
+const awsDB = new AWS.DynamoDB.DocumentClient();
 
+const GraphQLObjectType = graphql.GraphQLObjectType
+const GraphQLInt = graphql.GraphQLInt
+const GraphQLBoolean = graphql.GraphQLBoolean
+const GraphQLString = graphql.GraphQLString
+const GraphQLList = graphql.GraphQLList
+const GraphQLNonNull = graphql.GraphQLNonNull
+const GraphQLSchema = graphql.GraphQLSchema
 
-var GraphQLObjectType = graphql.GraphQLObjectType
-var GraphQLInt = graphql.GraphQLInt
-var GraphQLBoolean = graphql.GraphQLBoolean
-var GraphQLString = graphql.GraphQLString
-var GraphQLList = graphql.GraphQLList
-var GraphQLNonNull = graphql.GraphQLNonNull
-var GraphQLSchema = graphql.GraphQLSchema
-
-var QueryType = new graphql.GraphQLObjectType({
+const QueryType = new graphql.GraphQLObjectType({
   name: 'Query',
   fields: () => ({
     todos: {
@@ -28,6 +27,9 @@ var QueryType = new graphql.GraphQLObjectType({
       resolve: async () => {
         try {
           const result = await SnippetModel.find();
+
+          getFromDynamoDB().then(items => console.log('--->', items.length));
+
           return result;
         } catch (e) {
           console.log(e);
@@ -57,6 +59,18 @@ const addToDynamoDB = async ({ title, body, completed }) => {
       }
   };
   return await awsDB.put(params, async data => JSON.stringify(data, null, 2));
+}
+
+const getFromDynamoDB = async () => {
+  const params = {
+    TableName: "Snippets",
+  };
+  return new Promise((resolve, reject) => {
+    return awsDB.scan(params, (err, result) => {
+      if (err) reject(err);
+      resolve(result.Items);
+      });
+  });
 }
 
 const MutationAdd = {
@@ -90,7 +104,7 @@ const MutationAdd = {
 
 };
 
-var MutationType = new GraphQLObjectType({
+const MutationType = new GraphQLObjectType({
   name: 'Mutation',
   fields: {
     add: MutationAdd,
